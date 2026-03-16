@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🇧🇩 Bangladeshi Thinks</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{background:#f0f2f5;color:#1c1e21}
+.navbar{background:#006a4e;color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.navbar h1{font-size:20px}
+.btn{background:#f42a41;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px}
+.btn-green{background:#006a4e}
+.container{max-width:600px;margin:20px auto;padding:0 10px}
+.card{background:white;border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+input,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin:8px 0;font-size:14px}
+.reactions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.react-btn{background:#f0f2f5;border:none;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:16px}
+.react-btn:hover{background:#e4e6eb}
+.post-text{font-size:15px;margin:10px 0}
+.author{font-weight:bold;color:#006a4e}
+.page{display:none}
+.page.active{display:block}
+.tab{display:flex;gap:10px;margin-bottom:16px}
+.tab-btn{flex:1;padding:10px;border:none;background:#e4e6eb;border-radius:8px;cursor:pointer;font-size:14px}
+.tab-btn.active{background:#006a4e;color:white}
+.comment{background:#f0f2f5;padding:8px;border-radius:6px;margin:4px 0;font-size:13px}
+.msg-box{height:300px;overflow-y:auto;background:#f0f2f5;padding:10px;border-radius:8px;margin-bottom:10px}
+.msg{padding:8px 12px;border-radius:18px;margin:4px 0;max-width:70%}
+.msg.sent{background:#006a4e;color:white;margin-left:auto}
+.msg.recv{background:white}
+</style>
+</head>
+<body>
+<div class="navbar">
+  <h1>🇧🇩 Bangladeshi Thinks</h1>
+  <div id="navBtns">
+    <button class="btn" onclick="showPage('login')">Login</button>
+  </div>
+</div>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="page active container">
+  <div class="card">
+    <h2 style="margin-bottom:16px;color:#006a4e">🔐 Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPass" placeholder="Password">
+    <button class="btn" style="width:100%;margin-top:8px" onclick="login()">Login</button>
+    <p style="margin-top:12px;text-align:center">Account নেই? <a href="#" onclick="showPage('signup')" style="color:#006a4e">Sign Up</a></p>
+  </div>
+</div>
+
+<!-- SIGNUP PAGE -->
+<div id="signupPage" class="page container">
+  <div class="card">
+    <h2 style="margin-bottom:16px;color:#006a4e">📝 Sign Up</h2>
+    <input type="text" id="signupName" placeholder="আপনার নাম">
+    <input type="email" id="signupEmail" placeholder="Email">
+    <input type="password" id="signupPass" placeholder="Password">
+    <button class="btn" style="width:100%;margin-top:8px" onclick="signup()">Sign Up</button>
+    <p style="margin-top:12px;text-align:center">Already account আছে? <a href="#" onclick="showPage('login')" style="color:#006a4e">Login</a></p>
+  </div>
+</div>
+
+<!-- FEED PAGE -->
+<div id="feedPage" class="page container">
+  <div class="tab">
+    <button class="tab-btn active" onclick="switchTab('feed',this)">🏠 Feed</button>
+    <button class="tab-btn" onclick="switchTab('messages',this)">💬 Messages</button>
+    <button class="tab-btn" onclick="switchTab('people',this)">👥 People</button>
+  </div>
+
+  <!-- FEED TAB -->
+  <div id="feedTab">
+    <div class="card">
+      <textarea id="postText" placeholder="কি ভাবছেন? 🇧🇩" rows="3"></textarea>
+      <button class="btn btn-green" style="width:100%" onclick="createPost()">Post করুন 🚀</button>
+    </div>
+    <div id="postsContainer"></div>
+  </div>
+
+  <!-- MESSAGES TAB -->
+  <div id="messagesTab" style="display:none">
+    <div class="card">
+      <h3 style="margin-bottom:12px">💬 Message পাঠান</h3>
+      <select id="msgTo" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px"></select>
+      <div class="msg-box" id="msgBox"></div>
+      <input type="text" id="msgText" placeholder="Message লিখুন...">
+      <button class="btn btn-green" style="width:100%;margin-top:8px" onclick="sendMessage()">পাঠান 📤</button>
+    </div>
+  </div>
+
+  <!-- PEOPLE TAB -->
+  <div id="peopleTab" style="display:none">
+    <div id="peopleList"></div>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('token');
+let currentUser = null;
+
+if(token) {
+  try {
+    currentUser = JSON.parse(atob(token.split('.')[1]));
+    showFeed();
+  } catch(e) { localStorage.removeItem('token'); }
+}
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(page+'Page').classList.add('active');
+}
+
+async function signup() {
+  const name = document.getElementById('signupName').value;
+  const email = document.getElementById('signupEmail').value;
+  const password = document.getElementById('signupPass').value;
+  const res = await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password})});
+  const data = await res.json();
+  if(data.token) { token=data.token; localStorage.setItem('token',token); currentUser=JSON.parse(atob(token.split('.')[1])); showFeed(); }
+  else alert(data.error);
+}
+
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPass').value;
+  const res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const data = await res.json();
+  if(data.token) { token=data.token; localStorage.setItem('token',token); currentUser=JSON.parse(atob(token.split('.')[1])); showFeed(); }
+  else alert(data.error);
+}
+
+function showFeed() {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('feedPage').classList.add('active');
+  document.getElementById('navBtns').innerHTML = `<span style="color:white;margin-right:10px">👋 ${currentUser.name}</span><button class="btn" onclick="logout()">Logout</button>`;
+  loadPosts();
+  loadUsers();
+}
+
+function logout() { localStorage.removeItem('token'); token=null; currentUser=null; location.reload(); }
+
+function switchTab(tab, btn) {
+  ['feed','messages','people'].forEach(t=>{ document.getElementById(t+'Tab').style.display='none'; });
+  document.getElementById(tab+'Tab').style.display='block';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(tab==='messages') loadUsers(true);
+}
+
+async function loadPosts() {
+  const res = await fetch('/api/posts',{headers:{Authorization:'Bearer '+token}});
+  const posts = await res.json();
+  document.getElementById('postsContainer').innerHTML = posts.map(p=>`
+    <div class="card">
+      <div class="author">👤 ${p.author}</div>
+      <div class="post-text">${p.text}</div>
+      <div class="reactions">
+        <button class="react-btn" onclick="react(${p.id},'bambo')">🎋 ${p.reactions.bambo}</button>
+        <button class="react-btn" onclick="react(${p.id},'fire')">🔥 ${p.reactions.fire}</button>
+        <button class="react-btn" onclick="react(${p.id},'haha')">🤣 ${p.reactions.haha}</button>
+        <button class="react-btn" onclick="react(${p.id},'jouta')">👡 ${p.reactions.jouta}</button>
+        <button class="react-btn" onclick="react(${p.id},'dead')">💀 ${p.reactions.dead}</button>
+      </div>
+      <div style="margin-top:10px">
+        ${p.comments.map(c=>`<div class="comment"><b>${c.author}:</b> ${c.text}</div>`).join('')}
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="text" id="comment-${p.id}" placeholder="Comment করুন..." style="margin:0">
+          <button class="btn btn-green" onclick="addComment(${p.id})">💬</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function createPost() {
+  const text = document.getElementById('postText').value;
+  if(!text) return alert('কিছু লিখুন!');
+  await fetch('/api/posts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text})});
+  document.getElementById('postText').value='';
+  loadPosts();
+}
+
+async function react(postId, type) {
+  await fetch(`/api/posts/${postId}/react`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({type})});
+  loadPosts();
+}
+
+async function addComment(postId) {
+  const text = document.getElementById('comment-'+postId).value;
+  if(!text) return;
+  await fetch(`/api/posts/${postId}/comment`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text})});
+  loadPosts();
+}
+
+async function loadUsers(forMsg=false) {
+  const res = await fetch('/api/users',{headers:{Authorization:'Bearer '+token}});
+  const users = await res.json();
+  const others = users.filter(u=>u.id!==currentUser.id);
+  if(forMsg) {
+    document.getElementById('msgTo').innerHTML = others.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  }
+  document.getElementById('peopleList').innerHTML = others.map(u=>`
+    <div class="card">
+      <div class="author">👤 ${u.name}</div>
+      <div style="color:#666;font-size:13px">${u.bio||'Bio নেই'}</div>
+    </div>
+  `).join('');
+}
+
+async function sendMessage() {
+  const to = document.getElementById('msgTo').value;
+  const text = document.getElementById('msgText').value;
+  if(!text) return;
+  await fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({to:parseInt(to),text})});
+  document.getElementById('msgText').value='';
+  loadMessages(to);
+}
+
+async function loadMessages(userId) {
+  const res = await fetch(`/api/messages/${userId}`,{headers:{Authorization:'Bearer '+token}});
+  const msgs = await res.json();
+  document.getElementById('msgBox').innerHTML = msgs.map(m=>`
+    <div class="msg ${m.from===currentUser.id?'sent':'recv'}">${m.text}</div>
+  `).join('');
+}
+</script>
+</body>
+</html>
